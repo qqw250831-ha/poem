@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>詩歌填空測驗</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    
+    <!-- 配置Tailwind自定义字体 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'microsoft': ['"Microsoft JhengHei"', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .poetry-line {
+                @apply my-3 text-xl md:text-2xl lg:text-3xl transition-all duration-300;
+            }
+            .option-btn {
+                @apply px-4 py-2 m-1 rounded border transition-all duration-200 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500;
+            }
+            .correct {
+                @apply bg-green-100 border-green-500;
+            }
+            .incorrect {
+                @apply bg-red-100 border-red-500;
+            }
+            .quiz-container {
+                @apply max-w-3xl mx-auto p-4 bg-white rounded-lg shadow-lg transition-all duration-500 transform hover:shadow-xl;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-microsoft min-h-screen flex flex-col items-center justify-center p-4">
+    <div class="quiz-container">
+        <header class="text-center mb-6">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-800 mb-2">詩歌填空測驗</h1>
+            <p class="text-gray-600">從下面的選項中選擇正確的字，完成詩句</p>
+        </header>
+        
+        <main>
+            <!-- 詩歌顯示區域 -->
+            <div id="poetry-display" class="mb-8 p-6 bg-gray-50 rounded-lg border border-gray-200">
+                <!-- 詩句將由JavaScript動態生成 -->
+            </div>
+            
+            <!-- 選擇題區域 -->
+            <div id="questions-container" class="mb-8 space-y-6">
+                <!-- 題目將由JavaScript動態生成 -->
+            </div>
+            
+            <!-- 反饋區域 -->
+            <div id="feedback" class="mb-6 p-4 rounded hidden"></div>
+            
+            <!-- 按鈕區域 -->
+            <div class="text-center">
+                <button id="refresh-btn" class="px-6 py-3 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition-all duration-200 flex items-center justify-center mx-auto">
+                    <i class="fa fa-refresh mr-2"></i> 重新開始
+                </button>
+            </div>
+        </main>
+        
+        <footer class="mt-8 text-center text-gray-500 text-sm">
+            <p>詩歌填空練習 &copy; 2023</p>
+        </footer>
+    </div>
+
+    <script>
+        // 詩歌數據庫
+        const poems = [
+            {
+                id: 1,
+                lines: [
+                    "趙客縵胡纓，",
+                    "吳鉤霜雪明。",
+                    "銀鞍照白馬，",
+                    "颯沓如流星。"
+                ]
+            },
+            {
+                id: 2,
+                lines: [
+                    "上有青冥之長天，",
+                    "下有淥水之波瀾。",
+                    "天長路遠魂飛苦，",
+                    "夢魂不到關山難。"
+                ]
+            },
+            {
+                id: 3,
+                lines: [
+                    "百戰沙場碎鐵衣，",
+                    "城南已合數重圍。",
+                    "突營射殺呼延將，",
+                    "獨領殘兵千騎歸。"
+                ]
+            },
+            {
+                id: 4,
+                lines: [
+                    "楊花落盡子規啼，",
+                    "聞道龍標過五溪。",
+                    "我寄愁心與明月，",
+                    "隨風直到夜郎西。"
+                ]
+            },
+            {
+                id: 5,
+                lines: [
+                    "朝辭白帝彩雲間，",
+                    "千里江陵一日還。",
+                    "兩岸猿聲啼不住，",
+                    "輕舟已過萬重山。"
+                ]
+            }
+        ];
+
+        // 常用漢字庫，用於生成干擾項
+        const commonCharacters = "的一是了我不在人有他這上着個地到大里說來去子時要出也得就你會可家多都看起好發時間能對沒為學以們同學麼之麼下而過想成";
+
+        // 當前詩歌和填空位置
+        let currentPoem = null;
+        let blankPositions = [];
+        let userAnswers = {};
+        let isAnswered = false;
+
+        // DOM元素
+        const poetryDisplay = document.getElementById('poetry-display');
+        const questionsContainer = document.getElementById('questions-container');
+        const feedback = document.getElementById('feedback');
+        const refreshBtn = document.getElementById('refresh-btn');
+
+        // 初始化頁面
+        document.addEventListener('DOMContentLoaded', () => {
+            startNewQuiz();
+            refreshBtn.addEventListener('click', startNewQuiz);
+        });
+
+        // 開始新的測驗
+        function startNewQuiz() {
+            // 重置狀態
+            resetQuizState();
+            
+            // 隨機選擇一首詩
+            currentPoem = poems[Math.floor(Math.random() * poems.length)];
+            
+            // 隨機選擇1-2個填空位置
+            const numBlanks = Math.random() > 0.5 ? 2 : 1;
+            blankPositions = getRandomBlankPositions(currentPoem, numBlanks);
+            
+            // 顯示詩歌和題目
+            displayPoetry();
+            createQuestions();
+        }
+
+        // 重置測驗狀態
+        function resetQuizState() {
+            poetryDisplay.innerHTML = '';
+            questionsContainer.innerHTML = '';
+            feedback.innerHTML = '';
+            feedback.classList.add('hidden');
+            currentPoem = null;
+            blankPositions = [];
+            userAnswers = {};
+            isAnswered = false;
+        }
+
+        // 獲取隨機填空位置
+        function getRandomBlankPositions(poem, numBlanks) {
+            const positions = [];
+            const allPossiblePositions = [];
+            
+            // 收集所有可能的字位置
+            poem.lines.forEach((line, lineIndex) => {
+                for (let charIndex = 0; charIndex < line.length; charIndex++) {
+                    // 跳過標點符號
+                    if (/[\u3002\uff1b\uff0c\uff1a\u201c\u201d\uff08\uff09\u3001\uff1f\u300a\u300b]/.test(line[charIndex])) {
+                        continue;
+                    }
+                    allPossiblePositions.push({
+                        lineIndex,
+                        charIndex,
+                        character: line[charIndex]
+                    });
+                }
+            });
+            
+            // 隨機選擇指定數量的位置
+            for (let i = 0; i < numBlanks; i++) {
+                if (allPossiblePositions.length === 0) break;
+                
+                const randomIndex = Math.floor(Math.random() * allPossiblePositions.length);
+                positions.push(allPossiblePositions[randomIndex]);
+                allPossiblePositions.splice(randomIndex, 1); // 避免重複選擇
+            }
+            
+            return positions;
+        }
+
+        // 顯示詩歌，替換填空位置為標記
+        function displayPoetry() {
+            currentPoem.lines.forEach((line, lineIndex) => {
+                const lineElement = document.createElement('div');
+                lineElement.className = 'poetry-line';
+                
+                let processedLine = '';
+                for (let charIndex = 0; charIndex < line.length; charIndex++) {
+                    // 檢查是否是填空位置
+                    const blank = blankPositions.find(b => b.lineIndex === lineIndex && b.charIndex === charIndex);
+                    if (blank) {
+                        processedLine += `<span class="inline-block px-2 py-1 mx-0.5 bg-yellow-100 border-b-2 border-yellow-400 font-bold">【${blankPositions.indexOf(blank) + 1}】</span>`;
+                    } else {
+                        processedLine += line[charIndex];
+                    }
+                }
+                
+                lineElement.innerHTML = processedLine;
+                poetryDisplay.appendChild(lineElement);
+            });
+        }
+
+        // 創建選擇題
+        function createQuestions() {
+            blankPositions.forEach((blank, index) => {
+                const questionNumber = index + 1;
+                const questionElement = document.createElement('div');
+                questionElement.className = 'question p-4 bg-gray-50 rounded-lg border border-gray-200';
+                
+                // 題目標題
+                const questionTitle = document.createElement('h3');
+                questionTitle.className = 'text-lg font-semibold mb-3';
+                questionTitle.textContent = `第 ${questionNumber} 空：請選擇正確的字`;
+                questionElement.appendChild(questionTitle);
+                
+                // 生成選項（1個正確答案 + 3個干擾項）
+                const options = generateOptions(blank.character);
+                
+                // 選項按鈕容器
+                const optionsContainer = document.createElement('div');
+                optionsContainer.className = 'options grid grid-cols-2 md:grid-cols-4 gap-2';
+                
+                // 創建選項按鈕
+                options.forEach(option => {
+                    const button = document.createElement('button');
+                    button.className = 'option-btn';
+                    button.textContent = option;
+                    button.dataset.question = questionNumber;
+                    button.dataset.answer = option === blank.character;
+                    
+                    button.addEventListener('click', () => selectAnswer(button, questionNumber));
+                    optionsContainer.appendChild(button);
+                });
+                
+                questionElement.appendChild(optionsContainer);
+                questionsContainer.appendChild(questionElement);
+            });
+        }
+
+        // 生成選項（1個正確答案 + 3個干擾項）
+        function generateOptions(correctChar) {
+            const options = [correctChar];
+            
+            // 隨機選擇3個不同的干擾項
+            while (options.length < 4) {
+                const randomChar = commonCharacters[Math.floor(Math.random() * commonCharacters.length)];
+                if (!options.includes(randomChar)) {
+                    options.push(randomChar);
+                }
+            }
+            
+            // 打亂選項順序
+            return shuffleArray(options);
+        }
+
+        // 洗牌算法，打亂數組順序
+        function shuffleArray(array) {
+            const newArray = [...array];
+            for (let i = newArray.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+            }
+            return newArray;
+        }
+
+        // 處理用戶選擇答案
+        function selectAnswer(button, questionNumber) {
+            if (isAnswered) return;
+            
+            // 記錄用戶答案
+            userAnswers[questionNumber] = button.dataset.answer === 'true';
+            
+            // 高亮顯示選擇的按鈕
+            const questionElement = button.closest('.question');
+            const allOptions = questionElement.querySelectorAll('.option-btn');
+            allOptions.forEach(btn => btn.classList.remove('bg-blue-100'));
+            button.classList.add('bg-blue-100');
+            
+            // 檢查是否所有題目都已回答
+            if (Object.keys(userAnswers).length === blankPositions.length) {
+                checkAnswers();
+            }
+        }
+
+        // 檢查答案並顯示結果
+        function checkAnswers() {
+            isAnswered = true;
+            let allCorrect = true;
+            
+            // 標記正確和錯誤的答案
+            blankPositions.forEach((blank, index) => {
+                const questionNumber = index + 1;
+                const questionElement = questionsContainer.children[index];
+                const allOptions = questionElement.querySelectorAll('.option-btn');
+                
+                allOptions.forEach(btn => {
+                    if (btn.dataset.answer === 'true') {
+                        btn.classList.add('correct');
+                    } else if (btn.classList.contains('bg-blue-100')) {
+                        btn.classList.add('incorrect');
+                        allCorrect = false;
+                    }
+                });
+            });
+            
+            // 顯示反饋
+            feedback.classList.remove('hidden');
+            if (allCorrect) {
+                feedback.className = 'mb-6 p-4 rounded bg-green-100 text-green-800 border border-green-300';
+                feedback.innerHTML = '<i class="fa fa-check-circle mr-2"></i> 恭喜！全部答對了，真棒！';
+            } else {
+                feedback.className = 'mb-6 p-4 rounded bg-red-100 text-red-800 border border-red-300';
+                feedback.innerHTML = '<i class="fa fa-times-circle mr-2"></i> 有些答案不正確，再試試看！';
+            }
+            
+            // 添加動畫效果
+            feedback.classList.add('animate-pulse');
+            setTimeout(() => {
+                feedback.classList.remove('animate-pulse');
+            }, 1000);
+        }
+    </script>
+</body>
+</html>
